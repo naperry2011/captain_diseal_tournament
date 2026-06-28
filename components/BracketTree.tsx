@@ -126,28 +126,54 @@ export default function BracketTree({
       )}
 
       <div className="overflow-x-auto pb-4">
-        <div className="flex min-w-max gap-6">
-          {rounds.map((round) => {
+        {/* gap-8 (2rem) between columns must match the w-8 / 2rem connector stubs below. */}
+        <div className="flex min-w-max items-stretch gap-8">
+          {rounds.map((round, roundIdx) => {
             const roundMatches = matches
               .filter((m) => m.round === round)
               .sort((a, b) => a.position - b.position);
+            const isFirstRound = roundIdx === 0;
+            const isLastRound = roundIdx === rounds.length - 1;
             return (
               <div key={round} className="flex flex-col">
                 <h2 className="display mb-3 text-center text-sm tracking-widest text-dojo-ash">
                   {roundLabel(round, totalRounds)}
                 </h2>
-                <div className="flex flex-1 flex-col justify-around gap-4">
-                  {roundMatches.map((m) => (
-                    <MatchCard
+                {/* Equal-height flex slots: each later-round match centers exactly
+                    between its two feeders at any bracket size (8–64). */}
+                <div className="flex flex-1 flex-col">
+                  {roundMatches.map((m, idx) => (
+                    <div
                       key={m.id}
-                      match={m}
-                      p1={toCardParticipant(m.p1Id, lookup)}
-                      p2={toCardParticipant(m.p2Id, lookup)}
-                      onOpen={
-                        status === "live" ? () => setSpotlightId(m.id) : undefined
-                      }
-                      pending={pendingMatchId === m.id}
-                    />
+                      className="relative flex flex-1 items-center justify-center"
+                    >
+                      <MatchCard
+                        match={m}
+                        p1={toCardParticipant(m.p1Id, lookup)}
+                        p2={toCardParticipant(m.p2Id, lookup)}
+                        onOpen={
+                          status === "live"
+                            ? () => setSpotlightId(m.id)
+                            : undefined
+                        }
+                        pending={pendingMatchId === m.id}
+                      />
+                      {/* Horizontal stub from this match toward the next round. */}
+                      {!isLastRound && (
+                        <span
+                          aria-hidden
+                          className="absolute left-full top-1/2 h-px w-8 -translate-y-1/2 bg-dojo-steel/60"
+                        />
+                      )}
+                      {/* Vertical line joining each pair of feeders, landing on the
+                          next-round match's center. Drawn on the first of each pair. */}
+                      {!isLastRound && idx % 2 === 0 && (
+                        <span
+                          aria-hidden
+                          className="absolute left-full top-1/2 h-full w-px translate-x-8 bg-dojo-steel/60"
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
