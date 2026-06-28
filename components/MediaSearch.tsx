@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CoverImage from "@/components/CoverImage";
 
 export type MediaKind = "anime" | "cartoon" | "game";
 
@@ -29,6 +30,9 @@ const TABS: { kind: MediaKind; label: string }[] = [
   { kind: "cartoon", label: "Cartoon" },
   { kind: "game", label: "Game" },
 ];
+
+// Providers with a live search backend. Others render a "Coming soon" panel.
+const LIVE_PROVIDERS = new Set<MediaKind>(["anime"]);
 
 /**
  * Per-competitor media attach control. Tabbed (anime live, cartoon/game stubbed),
@@ -97,6 +101,19 @@ export default function MediaSearch({
     };
   }, [debounced, tab, open]);
 
+  // Switching tabs clears stale results from the previous provider. For known
+  // stub providers (cartoon/game) we optimistically show "Coming soon" right
+  // away; the next fetch (once the user types) confirms availability.
+  function selectTab(next: MediaKind) {
+    if (next === tab) return;
+    reqRef.current++; // invalidate any in-flight request
+    setTab(next);
+    setResults([]);
+    setError(null);
+    setLoading(false);
+    setAvailable(LIVE_PROVIDERS.has(next));
+  }
+
   function choose(r: MediaResult) {
     onSelect({
       mediaType: r.mediaType,
@@ -114,16 +131,10 @@ export default function MediaSearch({
   if (selection) {
     return (
       <div className="flex items-center gap-2 rounded border border-dojo-steel bg-dojo-black px-2 py-1">
-        {selection.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={selection.imageUrl}
-            alt=""
-            className="h-10 w-8 rounded object-cover"
-          />
-        ) : (
-          <div className="h-10 w-8 rounded bg-dojo-steel" />
-        )}
+        <CoverImage
+          src={selection.imageUrl}
+          className="h-10 w-8 rounded object-cover"
+        />
         <span className="max-w-[10rem] truncate text-sm text-dojo-white">
           {selection.title}
         </span>
@@ -159,7 +170,7 @@ export default function MediaSearch({
             <button
               key={t.kind}
               type="button"
-              onClick={() => setTab(t.kind)}
+              onClick={() => selectTab(t.kind)}
               className={`display rounded px-2 py-1 text-xs tracking-widest transition ${
                 tab === t.kind
                   ? "bg-dojo-red text-dojo-white"
@@ -211,16 +222,10 @@ export default function MediaSearch({
                   onClick={() => choose(r)}
                   className="flex w-full flex-col items-start gap-1 rounded border border-dojo-steel p-1 text-left transition hover:border-dojo-red hover:shadow-red-glow"
                 >
-                  {r.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={r.imageUrl}
-                      alt=""
-                      className="h-28 w-full rounded object-cover"
-                    />
-                  ) : (
-                    <div className="h-28 w-full rounded bg-dojo-steel" />
-                  )}
+                  <CoverImage
+                    src={r.imageUrl}
+                    className="h-28 w-full rounded object-cover"
+                  />
                   <span className="line-clamp-2 text-xs text-dojo-white">
                     {r.title}
                   </span>

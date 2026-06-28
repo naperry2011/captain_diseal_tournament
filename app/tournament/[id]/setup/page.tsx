@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import CoverImage from "@/components/CoverImage";
 import SetupControls from "@/components/SetupControls";
 import { getTournament } from "@/lib/tournaments";
 
@@ -46,10 +47,8 @@ export default async function SetupPage({
               {p.seed}
             </span>
             {p.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <CoverImage
                 src={p.imageUrl}
-                alt=""
                 className="h-12 w-9 shrink-0 rounded object-cover"
               />
             ) : null}
