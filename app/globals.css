@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* Captain Diesel's Dojo brand palette */
+  --color-dojo-black: #0d0d0f;
+  --color-dojo-coal: #16161a;
+  --color-dojo-steel: #23232a;
+  --color-dojo-ash: #8a8a93;
+  --color-dojo-red: #e11d2a;
+  --color-dojo-blood: #c8102e;
+  --color-dojo-white: #f5f5f7;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Brand shadow */
+  --shadow-red-glow: 0 0 12px 0 rgba(225, 29, 42, 0.55);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Brand fonts (wired from next/font CSS variables in layout.tsx) */
+  --font-display: var(--font-oswald), "Arial Narrow", sans-serif;
+  --font-sans: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-dojo-black);
+  color: var(--color-dojo-white);
+  font-family: var(--font-sans);
+}
+
+/* Condensed uppercase display treatment for headings / banners */
+.display {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
 }
