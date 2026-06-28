@@ -7,6 +7,11 @@ import type { MediaResult } from "./types";
 // query key lets us serve repeat searches without re-hitting AniList, which is
 // what keeps us under its ~90 req/min limit. The MediaCache row's `mediaId`
 // column is repurposed as this normalized cache key.
+//
+// NOTE: there is no eviction yet. Expired rows are filtered out on read (we
+// treat expiresAt <= now as a miss) but are never deleted, so rows accumulate
+// over time. TODO: add a periodic cleanup, e.g. a cron calling
+// prisma.mediaCache.deleteMany({ where: { expiresAt: { lt: new Date() } } }).
 
 /** Build the normalized cache key for a search query. */
 function cacheKey(query: string): string {
