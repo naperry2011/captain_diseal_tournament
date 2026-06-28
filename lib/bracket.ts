@@ -24,3 +24,17 @@ export function nextPowerOfTwo(n: number): number {
   while (p < n) p *= 2;
   return p;
 }
+
+export function seedOrder(size: number): number[] {
+  let rounds = [1, 2];
+  while (rounds.length < size) {
+    const sum = rounds.length * 2 + 1;
+    const next: number[] = [];
+    rounds.forEach((s, i) => {
+      if (i % 2 === 0) { next.push(s); next.push(sum - s); }
+      else { next.push(sum - s); next.push(s); }
+    });
+    rounds = next;
+  }
+  return rounds;
+}
