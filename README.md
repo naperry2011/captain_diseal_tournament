@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Captain Diesel's Dojo
 
-## Getting Started
+A single-elimination tournament bracket tool for running live, screen-shared
+showdowns of anime, cartoons, and games. Build a bracket of 8–64 competitors,
+share the bracket screen on stream, and advance winners with a click as the
+matches play out.
 
-First, run the development server:
+- **Seeding** — search AniList (anime), TMDB (cartoons), and IGDB (games) to add
+  competitors with cover art, or add custom entries.
+- **Bracket view** — a high-contrast, screen-share-friendly bracket. Click a
+  competitor to advance them; a quick katana-slash flourish marks the winner.
+- **Single source of truth** — every tournament lives in Postgres, so the bracket
+  survives refreshes and can be reopened later.
+
+## Stack
+
+- **Next.js 16** (App Router, React 19, TypeScript)
+- **Tailwind CSS v4** — brand tokens defined via `@theme` in `app/globals.css`
+- **Prisma 7** with the `@prisma/adapter-pg` driver adapter
+- **Postgres** (Neon / Vercel Postgres)
+- **Zod** for validation, **Vitest** for tests
+
+## Local setup
+
+Requires Node 20+ and a Postgres database (Neon works well — it provides both a
+pooled and a direct connection string).
 
 ```bash
+# 1. Install dependencies (postinstall runs `prisma generate`)
+npm install
+
+# 2. Configure environment
+cp .env.example .env
+#   then fill in the values — see "Environment variables" below
+
+# 3. Push the schema to your database
+#   Uses DATABASE_URL_UNPOOLED (the direct connection) via prisma.config.ts;
+#   pooled/pgbouncer URLs are unreliable for DDL.
+npx prisma db push
+
+# 4. Run the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs at http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env` and fill in real values.
 
-## Learn More
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | **Pooled** (`-pooler`) connection. Used by the running app at runtime via the Prisma pg adapter. This is the one you set in Vercel. |
+| `DATABASE_URL_UNPOOLED` | recommended | **Direct** (non-pooler) connection. Used by the Prisma CLI for schema ops (`db push` / `migrate`). Falls back to `DATABASE_URL` if unset. |
+| `TMDB_READ_TOKEN` | for cartoons | TMDB v4 Read Access Token (bearer, preferred). |
+| `TMDB_API_KEY` | for cartoons | TMDB v3 API key (fallback). At least one TMDB value is needed or the cartoon tab shows "search unavailable". |
+| `TWITCH_CLIENT_ID` | for games | Twitch app client ID — IGDB auth uses a Twitch OAuth grant. |
+| `TWITCH_CLIENT_SECRET` | for games | Twitch app client secret. Both are required or the game tab shows "coming soon". |
 
-To learn more about Next.js, take a look at the following resources:
+### Media APIs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **AniList (anime)** — no API key required.
+- **TMDB (cartoons)** — needs `TMDB_READ_TOKEN` (or `TMDB_API_KEY`). Get one at
+  https://www.themoviedb.org/settings/api.
+- **IGDB (games)** — needs `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` from a
+  Twitch developer app at https://dev.twitch.tv/console.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Testing
 
-## Deploy on Vercel
+```bash
+npm test          # run the Vitest suite once
+npm run test:watch
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment (Vercel)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Vercel auto-detects Next.js — no `vercel.json` needed.
+
+1. Import the repo into Vercel.
+2. Set the environment variables above in the project settings. Use the **pooled**
+   connection for `DATABASE_URL`.
+3. Deploy. `npm install` runs the `postinstall` script (`prisma generate`) so the
+   Prisma client is generated before `next build`.
+
+Run `npx prisma db push` once against your production database (using the direct
+connection) to create the schema before the first deploy.
