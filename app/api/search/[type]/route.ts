@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { searchAnilist } from "@/lib/media/anilist";
 import { searchTmdb } from "@/lib/media/tmdb";
+import { searchIgdb } from "@/lib/media/igdb";
 import { getCachedSearch, setCachedSearch } from "@/lib/media/cache";
 import type { MediaResult, SearchResponse } from "@/lib/media/types";
 
 const typeSchema = z.enum(["anime", "cartoon", "game"]);
 
-// Live providers by media type. anime = AniList (no key), cartoon = TMDB.
-// game (IGDB) stays stubbed until Twitch OAuth credentials are configured.
+// Live providers by media type. anime = AniList (no key), cartoon = TMDB,
+// game = IGDB (via Twitch OAuth). A type absent here renders "coming soon".
 const LIVE_PROVIDERS: Partial<Record<
   z.infer<typeof typeSchema>,
   (query: string) => Promise<MediaResult[]>
 >> = {
   anime: searchAnilist,
   cartoon: searchTmdb,
+  game: searchIgdb,
 };
 
 export async function GET(
