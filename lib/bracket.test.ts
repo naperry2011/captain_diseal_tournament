@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextPowerOfTwo, seedOrder, generateBracket, advance } from "./bracket";
+import { nextPowerOfTwo, seedOrder, generateBracket, advance, champion } from "./bracket";
 import type { SeedEntry } from "./bracket";
 
 const mk = (n: number): SeedEntry[] => Array.from({length:n},(_,i)=>({id:`p${i+1}`,name:`P${i+1}`,seed:i+1}));
@@ -60,5 +60,26 @@ describe("advance", () => {
   });
   it("throws when winnerId is not a participant of that match", () => {
     expect(() => advance(generateBracket(mk(8)), 1, 0, "p4")).toThrow();
+  });
+});
+
+describe("champion + full run", () => {
+  it("is null until the final is decided", () => { expect(champion(generateBracket(mk(8)))).toBeNull(); });
+  it("plays a full 8-bracket to a single champion", () => {
+    let b = generateBracket(mk(8));
+    while (champion(b) === null) {
+      const ready = b.matches.find(m => !m.winnerId && m.p1Id && m.p2Id);
+      if (!ready) throw new Error("no ready match but no champion");
+      b = advance(b, ready.round, ready.position, ready.p1Id!);
+    }
+    expect(champion(b)).toBe("p1");
+  });
+  it("handles 12 (non-power-of-two) to a champion", () => {
+    let b = generateBracket(mk(12));
+    while (champion(b) === null) {
+      const ready = b.matches.find(m => !m.winnerId && m.p1Id && m.p2Id)!;
+      b = advance(b, ready.round, ready.position, ready.p1Id!);
+    }
+    expect(champion(b)).not.toBeNull();
   });
 });

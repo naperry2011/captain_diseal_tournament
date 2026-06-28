@@ -78,3 +78,8 @@ export function advance(bracket: Bracket, round: number, position: number, winne
   placeWinnerIntoNext(matches, round, position, winnerId);
   return { ...bracket, matches };
 }
+
+export function champion(bracket: Bracket): string | null {
+  const finalRound = Math.max(...bracket.matches.map(m => m.round));
+  return bracket.matches.find(m => m.round === finalRound && m.position === 0)?.winnerId ?? null;
+}
