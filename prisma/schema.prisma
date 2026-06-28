@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TournamentStatus {
+  setup
+  live
+  done
+}
+
+enum MediaType {
+  anime
+  cartoon
+  game
+}
+
+enum MatchStatus {
+  pending
+  ready
+  done
+}
+
+model Tournament {
+  id        String           @id @default(cuid())
+  name      String
+  status    TournamentStatus @default(setup)
+  size      Int
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  participants Participant[]
+  matches      Match[]
+}
+
+model Participant {
+  id           String     @id @default(cuid())
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+  name         String
+  seed         Int
+  mediaType    MediaType?
+  mediaId      String?
+  title        String?
+  imageUrl     String?
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  tournamentId String
+  round        Int
+  position     Int
+  p1Id         String?
+  p2Id         String?
+  winnerId     String?
+  status       MatchStatus @default(pending)
+
+  @@unique([tournamentId, round, position])
+}
+
+model MediaCache {
+  id        String   @id @default(cuid())
+  provider  String
+  mediaId   String
+  json      Json
+  expiresAt DateTime
+
+  @@unique([provider, mediaId])
+}
