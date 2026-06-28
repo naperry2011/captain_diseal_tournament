@@ -26,8 +26,10 @@ export function nextPowerOfTwo(n: number): number {
 }
 
 export function seedOrder(size: number): number[] {
+  if (size < 1 || (size & (size - 1)) !== 0) throw new Error("seedOrder size must be a power of two");
   let rounds = [1, 2];
   while (rounds.length < size) {
+    // fold each round: pair each seed s with its complement (sum - s), alternating order to keep top seeds apart (snake seeding)
     const sum = rounds.length * 2 + 1;
     const next: number[] = [];
     rounds.forEach((s, i) => {
@@ -46,6 +48,14 @@ function placeWinnerIntoNext(matches: BracketMatch[], round: number, position: n
 }
 
 export function generateBracket(participants: SeedEntry[]): Bracket {
+  if (participants.length < 2) throw new Error("Need at least 2 participants");
+  const seen = new Set<number>();
+  for (const p of participants) {
+    if (!Number.isInteger(p.seed) || p.seed < 1 || p.seed > participants.length)
+      throw new Error(`Seed ${p.seed} out of range 1..${participants.length}`);
+    if (seen.has(p.seed)) throw new Error(`Duplicate seed ${p.seed}`);
+    seen.add(p.seed);
+  }
   const size = nextPowerOfTwo(Math.max(participants.length, 2));
   const order = seedOrder(size);
   const bySeed = new Map(participants.map(p => [p.seed, p]));
@@ -62,7 +72,7 @@ export function generateBracket(participants: SeedEntry[]): Bracket {
     count = Math.floor(count / 2);
     round++;
   }
-  for (const m of matches.filter(x => x.round === 1 && x.winnerId)) {
+  for (const m of matches.filter(x => x.round === 1 && x.winnerId !== null)) {
     placeWinnerIntoNext(matches, m.round, m.position, m.winnerId!);
   }
   return { size, matches };
@@ -72,7 +82,7 @@ export function advance(bracket: Bracket, round: number, position: number, winne
   const matches = bracket.matches.map(m => ({ ...m }));
   const match = matches.find(m => m.round === round && m.position === position);
   if (!match) throw new Error(`No match at round ${round} position ${position}`);
-  if (match.winnerId) throw new Error("Match already decided");
+  if (match.winnerId !== null) throw new Error("Match already decided");
   if (winnerId !== match.p1Id && winnerId !== match.p2Id) throw new Error("Winner is not in this match");
   match.winnerId = winnerId;
   placeWinnerIntoNext(matches, round, position, winnerId);

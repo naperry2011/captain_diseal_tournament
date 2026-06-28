@@ -18,6 +18,9 @@ describe("seedOrder", () => {
     expect(o).toHaveLength(16);
     expect([...o].sort((a,b)=>a-b)).toEqual(Array.from({length:16},(_,i)=>i+1));
   });
+  it("throws when size is not a power of two", () => {
+    expect(() => seedOrder(6)).toThrow();
+  });
 });
 
 describe("generateBracket", () => {
@@ -43,6 +46,24 @@ describe("generateBracket", () => {
   it("creates the full match tree (size-1 matches total)", () => {
     expect(generateBracket(mk(8)).matches).toHaveLength(7);
   });
+  it("throws with fewer than 2 participants (0)", () => {
+    expect(() => generateBracket(mk(0))).toThrow();
+  });
+  it("throws with fewer than 2 participants (1)", () => {
+    expect(() => generateBracket(mk(1))).toThrow();
+  });
+  it("throws on a duplicate seed", () => {
+    const dup: SeedEntry[] = [
+      { id: "a", name: "A", seed: 1 },
+      { id: "b", name: "B", seed: 1 },
+    ];
+    expect(() => generateBracket(dup)).toThrow();
+  });
+  it("throws on an out-of-range seed (99 in a 5-player set)", () => {
+    const bad = mk(5);
+    bad[4] = { id: "p5", name: "P5", seed: 99 };
+    expect(() => generateBracket(bad)).toThrow();
+  });
 });
 
 describe("advance", () => {
@@ -65,6 +86,7 @@ describe("advance", () => {
 
 describe("champion + full run", () => {
   it("is null until the final is decided", () => { expect(champion(generateBracket(mk(8)))).toBeNull(); });
+  it("is null before the final at a larger size (32)", () => { expect(champion(generateBracket(mk(32)))).toBeNull(); });
   it("plays a full 8-bracket to a single champion", () => {
     let b = generateBracket(mk(8));
     while (champion(b) === null) {
