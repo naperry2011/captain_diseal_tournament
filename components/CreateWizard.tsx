@@ -4,11 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { z } from "zod";
 import MediaSearch, { type MediaSelection } from "@/components/MediaSearch";
-import {
-  addParticipantsAction,
-  createTournamentAction,
-  randomizeSeedsAction,
-} from "@/app/tournament/actions";
+import { createTournamentAction } from "@/app/tournament/actions";
 
 const SIZES = [8, 16, 32, 64] as const;
 type Size = (typeof SIZES)[number];
@@ -109,20 +105,18 @@ export default function CreateWizard() {
 
     setSubmitting(true);
     try {
-      const { id } = await createTournamentAction(name.trim(), size);
-      await addParticipantsAction(
-        id,
-        filled.map((c) => ({
+      const { id } = await createTournamentAction({
+        name: name.trim(),
+        size,
+        randomize,
+        entries: filled.map((c) => ({
           name: c.name.trim(),
           mediaType: c.media?.mediaType,
           mediaId: c.media?.mediaId,
           title: c.media?.title,
           imageUrl: c.media?.imageUrl,
         })),
-      );
-      if (randomize) {
-        await randomizeSeedsAction(id);
-      }
+      });
       router.push(`/tournament/${id}/setup`);
     } catch (e) {
       setSubmitting(false);

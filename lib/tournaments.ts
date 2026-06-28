@@ -65,19 +65,73 @@ export async function addParticipants(tournamentId: string, entries: Participant
   return prisma.participant.createMany({ data });
 }
 
+/** Fisher–Yates shuffle producing a 1..n seed permutation. Math.random is
+ *  intentional: this is a cosmetic seed shuffle, not security-sensitive. */
+function shuffledSeeds(n: number): number[] {
+  const seeds = Array.from({ length: n }, (_, i) => i + 1);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
+  }
+  return seeds;
+}
+
+export interface CreateTournamentInput {
+  name: string;
+  size: number;
+  entries: ParticipantEntry[];
+  randomize?: boolean;
+}
+
+/**
+ * Create a tournament and all of its participants atomically. Validates size and
+ * entry-count bounds, then performs every write inside a single transaction so a
+ * partial failure leaves no orphan tournament behind. Seeds follow entry order,
+ * or a shuffled 1..n permutation when `randomize` is set. Returns the new id.
+ */
+export async function createTournamentWithParticipants(
+  input: CreateTournamentInput,
+): Promise<{ id: string }> {
+  const { name, size, entries, randomize } = input;
+
+  if (!VALID_SIZES.has(size)) {
+    throw new Error(`Invalid tournament size ${size}; must be one of 8, 16, 32, 64`);
+  }
+  if (entries.length < 2) {
+    throw new Error("A tournament needs at least 2 competitors");
+  }
+  if (entries.length > size) {
+    throw new Error(`Too many competitors (${entries.length}) for a ${size}-slot bracket`);
+  }
+
+  const seeds = randomize
+    ? shuffledSeeds(entries.length)
+    : entries.map((_, i) => i + 1);
+
+  return prisma.$transaction(async (tx) => {
+    const tournament = await tx.tournament.create({ data: { name, size } });
+    await tx.participant.createMany({
+      data: entries.map((e, i) => ({
+        tournamentId: tournament.id,
+        name: e.name,
+        seed: seeds[i],
+        mediaType: e.mediaType,
+        mediaId: e.mediaId,
+        title: e.title,
+        imageUrl: e.imageUrl,
+      })),
+    });
+    return { id: tournament.id };
+  });
+}
+
 /** Shuffle participant seeds into a 1..n permutation (Fisher–Yates). */
 export async function randomizeSeeds(tournamentId: string) {
   const participants = await prisma.participant.findMany({
     where: { tournamentId },
     select: { id: true },
   });
-  const n = participants.length;
-  const seeds = Array.from({ length: n }, (_, i) => i + 1);
-  for (let i = n - 1; i > 0; i--) {
-    // Math.random is intentional: this is a cosmetic seed shuffle, not security-sensitive.
-    const j = Math.floor(Math.random() * (i + 1));
-    [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
-  }
+  const seeds = shuffledSeeds(participants.length);
   await prisma.$transaction(
     participants.map((p, i) =>
       prisma.participant.update({ where: { id: p.id }, data: { seed: seeds[i] } }),

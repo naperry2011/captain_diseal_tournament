@@ -3,57 +3,60 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
-  addParticipants,
-  createTournament,
+  createTournamentWithParticipants,
   generateAndSaveBracket,
-  type ParticipantEntry,
   randomizeSeeds,
 } from "@/lib/tournaments";
 
 const VALID_SIZES = [8, 16, 32, 64] as const;
 
-const sizeSchema = z
-  .number()
-  .int()
-  .refine((n) => (VALID_SIZES as readonly number[]).includes(n), {
-    message: "Size must be one of 8, 16, 32, 64",
-  });
-
-const nameSchema = z.string().trim().min(1, "Name is required").max(120);
-
 const participantSchema = z.object({
   name: z.string().trim().min(1, "Competitor name is required").max(120),
   seed: z.number().int().positive().optional(),
   mediaType: z.enum(["anime", "cartoon", "game"]).optional(),
-  mediaId: z.string().optional(),
-  title: z.string().optional(),
-  imageUrl: z.string().optional(),
+  mediaId: z.string().max(120).optional(),
+  title: z.string().max(300).optional(),
+  imageUrl: z.string().url().max(1000).optional(),
 });
 
-/** Create a tournament and return its new id. */
-export async function createTournamentAction(
-  name: string,
-  size: number,
-): Promise<{ id: string }> {
-  const parsedName = nameSchema.parse(name);
-  const parsedSize = sizeSchema.parse(size);
-  const t = await createTournament(parsedName, parsedSize);
-  revalidatePath("/");
-  return { id: t.id };
-}
+// Validate name, size, and entries together so the server is the source of
+// truth — including the upper bound (entries.length ≤ size).
+const createSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name is required").max(120),
+    size: z
+      .number()
+      .int()
+      .refine((n) => (VALID_SIZES as readonly number[]).includes(n), {
+        message: "Size must be one of 8, 16, 32, 64",
+      }),
+    entries: z.array(participantSchema).min(2, "Add at least 2 competitors"),
+    randomize: z.boolean().optional(),
+  })
+  .refine((v) => v.entries.length <= v.size, {
+    message: "Too many competitors for the chosen bracket size",
+    path: ["entries"],
+  });
 
-/** Attach competitors to a tournament. */
-export async function addParticipantsAction(
-  tournamentId: string,
-  entries: ParticipantEntry[],
-): Promise<void> {
-  const id = z.string().min(1).parse(tournamentId);
-  const parsed = z
-    .array(participantSchema)
-    .min(2, "Add at least 2 competitors")
-    .parse(entries);
-  await addParticipants(id, parsed);
-  revalidatePath(`/tournament/${id}/setup`);
+export type CreateTournamentActionInput = z.input<typeof createSchema>;
+
+/**
+ * Create a tournament + competitors in one transactional call and return the new
+ * id. Validates everything server-side; the lib function performs all writes
+ * inside a single transaction, so a partial failure leaves no orphan tournament.
+ */
+export async function createTournamentAction(
+  input: CreateTournamentActionInput,
+): Promise<{ id: string }> {
+  const parsed = createSchema.parse(input);
+  const result = await createTournamentWithParticipants({
+    name: parsed.name,
+    size: parsed.size,
+    entries: parsed.entries,
+    randomize: parsed.randomize,
+  });
+  revalidatePath("/");
+  return result;
 }
 
 /** Shuffle the seeds for a tournament. */
@@ -64,9 +67,8 @@ export async function randomizeSeedsAction(tournamentId: string): Promise<void> 
 }
 
 /**
- * Generate the bracket (setup -> live) and report success. The caller (a client
- * component) performs the navigation, since redirect() from within a try/catch
- * in the client action wrapper is awkward; here we keep it explicit.
+ * Generate the bracket (setup -> live). The caller (a client component) performs
+ * the navigation afterward.
  */
 export async function generateBracketAction(tournamentId: string): Promise<void> {
   const id = z.string().min(1).parse(tournamentId);
