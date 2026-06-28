@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { searchAnilist } from "@/lib/media/anilist";
-import { searchTmdb } from "@/lib/media/tmdb";
+import { searchTmdbShows, searchTmdbMovies } from "@/lib/media/tmdb";
 import { searchIgdb } from "@/lib/media/igdb";
 import { getCachedSearch, setCachedSearch } from "@/lib/media/cache";
 import type { MediaResult, SearchResponse } from "@/lib/media/types";
 
-const typeSchema = z.enum(["anime", "cartoon", "game"]);
+const typeSchema = z.enum(["anime", "show", "movie", "game"]);
 
-// Live providers by media type. anime = AniList (no key), cartoon = TMDB,
+// Live providers by media type. anime = AniList (no key), show/movie = TMDB,
 // game = IGDB (via Twitch OAuth). A type absent here renders "coming soon".
 const LIVE_PROVIDERS: Partial<Record<
   z.infer<typeof typeSchema>,
   (query: string) => Promise<MediaResult[]>
 >> = {
   anime: searchAnilist,
-  cartoon: searchTmdb,
+  show: searchTmdbShows,
+  movie: searchTmdbMovies,
   game: searchIgdb,
 };
 
@@ -30,7 +31,7 @@ export async function GET(
     const body: SearchResponse = {
       available: false,
       results: [],
-      error: "Invalid media type. Expected one of: anime, cartoon, game.",
+      error: "Invalid media type. Expected one of: anime, show, movie, game.",
     };
     return NextResponse.json(body, { status: 400 });
   }

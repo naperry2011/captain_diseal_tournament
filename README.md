@@ -1,12 +1,12 @@
 # Captain Diesel's Dojo
 
 A single-elimination tournament bracket tool for running live, screen-shared
-showdowns of anime, cartoons, and games. Build a bracket of 8–64 competitors,
+showdowns of anime, shows, movies, and games. Build a bracket of 8–64 competitors,
 share the bracket screen on stream, and advance winners with a click as the
 matches play out.
 
-- **Seeding** — search AniList (anime), TMDB (cartoons), and IGDB (games) to add
-  competitors with cover art, or add custom entries.
+- **Seeding** — search AniList (anime), TMDB (shows + movies), and IGDB (games) to
+  add competitors with cover art, or add custom entries.
 - **Bracket view** — a high-contrast, screen-share-friendly bracket. Click a
   competitor to advance them; a quick katana-slash flourish marks the winner.
 - **Single source of truth** — every tournament lives in Postgres, so the bracket
@@ -52,15 +52,15 @@ Copy `.env.example` to `.env` and fill in real values.
 | --- | --- | --- |
 | `DATABASE_URL` | yes | **Pooled** (`-pooler`) connection. Used by the running app at runtime via the Prisma pg adapter. This is the one you set in Vercel. |
 | `DATABASE_URL_UNPOOLED` | recommended | **Direct** (non-pooler) connection. Used by the Prisma CLI for schema ops (`db push` / `migrate`). Falls back to `DATABASE_URL` if unset. |
-| `TMDB_READ_TOKEN` | for cartoons | TMDB v4 Read Access Token (bearer, preferred). |
-| `TMDB_API_KEY` | for cartoons | TMDB v3 API key (fallback). At least one TMDB value is needed or the cartoon tab shows "search unavailable". |
+| `TMDB_READ_TOKEN` | for shows + movies | TMDB v4 Read Access Token (bearer, preferred). |
+| `TMDB_API_KEY` | for shows + movies | TMDB v3 API key (fallback). At least one TMDB value is needed or the Shows/Movies tabs show "search unavailable". |
 | `TWITCH_CLIENT_ID` | for games | Twitch app client ID — IGDB auth uses a Twitch OAuth grant. |
 | `TWITCH_CLIENT_SECRET` | for games | Twitch app client secret. Both are required or the game tab shows "coming soon". |
 
 ### Media APIs
 
 - **AniList (anime)** — no API key required.
-- **TMDB (cartoons)** — needs `TMDB_READ_TOKEN` (or `TMDB_API_KEY`). Get one at
+- **TMDB (shows + movies)** — needs `TMDB_READ_TOKEN` (or `TMDB_API_KEY`). Get one at
   https://www.themoviedb.org/settings/api.
 - **IGDB (games)** — needs `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` from a
   Twitch developer app at https://dev.twitch.tv/console.

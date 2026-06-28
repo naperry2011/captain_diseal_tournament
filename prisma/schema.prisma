@@ -14,7 +14,8 @@ enum TournamentStatus {
 
 enum MediaType {
   anime
-  cartoon
+  show
+  movie
   game
 }
 

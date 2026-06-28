@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import CoverImage from "@/components/CoverImage";
 
-export type MediaKind = "anime" | "cartoon" | "game";
+export type MediaKind = "anime" | "show" | "movie" | "game";
 
 export interface MediaSelection {
   mediaType: MediaKind;
@@ -27,16 +27,17 @@ interface SearchResponse {
 
 const TABS: { kind: MediaKind; label: string }[] = [
   { kind: "anime", label: "Anime" },
-  { kind: "cartoon", label: "Cartoon" },
+  { kind: "show", label: "Shows" },
+  { kind: "movie", label: "Movies" },
   { kind: "game", label: "Game" },
 ];
 
 // Providers with a live search backend. Others render a "Coming soon" panel.
-// anime = AniList, cartoon = TMDB, game = IGDB (via Twitch).
-const LIVE_PROVIDERS = new Set<MediaKind>(["anime", "cartoon", "game"]);
+// anime = AniList, show/movie = TMDB, game = IGDB (via Twitch).
+const LIVE_PROVIDERS = new Set<MediaKind>(["anime", "show", "movie", "game"]);
 
 /**
- * Per-competitor media attach control. Tabbed (anime + cartoon + game live),
+ * Per-competitor media attach control. Tabbed (anime + shows + movies + game live),
  * debounced search against /api/search/{type}, click-to-select.
  */
 export default function MediaSearch({

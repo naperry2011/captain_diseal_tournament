@@ -1,4 +1,4 @@
-export type MediaKind = "anime" | "cartoon" | "game";
+export type MediaKind = "anime" | "show" | "movie" | "game";
 
 export interface MediaResult {
   mediaId: string;

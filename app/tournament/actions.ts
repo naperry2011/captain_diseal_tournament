@@ -13,7 +13,7 @@ const VALID_SIZES = [8, 16, 32, 64] as const;
 const participantSchema = z.object({
   name: z.string().trim().min(1, "Competitor name is required").max(120),
   seed: z.number().int().positive().optional(),
-  mediaType: z.enum(["anime", "cartoon", "game"]).optional(),
+  mediaType: z.enum(["anime", "show", "movie", "game"]).optional(),
   mediaId: z.string().max(120).optional(),
   title: z.string().max(300).optional(),
   imageUrl: z.string().url().max(1000).optional(),

@@ -1,4 +1,4 @@
-export type MediaType = "anime" | "cartoon" | "game";
+export type MediaType = "anime" | "show" | "movie" | "game";
 
 export interface SeedEntry {
   id: string;

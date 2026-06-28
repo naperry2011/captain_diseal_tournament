@@ -42,7 +42,7 @@ export async function getTournament(id: string) {
 export interface ParticipantEntry {
   name: string;
   seed?: number;
-  mediaType?: "anime" | "cartoon" | "game";
+  mediaType?: "anime" | "show" | "movie" | "game";
   mediaId?: string;
   title?: string;
   imageUrl?: string;

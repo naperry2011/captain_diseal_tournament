@@ -55,7 +55,7 @@ Category: API / Service
 Primary Files:
 * lib/media/types.ts — `MediaResult`, `MediaProvider` interface
 * lib/media/anilist.ts — live AniList GraphQL provider + tested mapper
-* lib/media/stub.ts — cartoon/game stub providers (available: false)
+* lib/media/tmdb.ts — TMDB provider: searchTmdbShows (TV) + searchTmdbMovies
 * lib/media/cache.ts — 24h MediaCache read/write
 * app/api/search/[type]/route.ts — GET search proxy (anime live, others stub)
 

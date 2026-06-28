@@ -17,7 +17,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Captain Diesel's Dojo",
   description:
-    "Bracket-style tournaments for anime, cartoon, and game showdowns — run live from Captain Diesel's Dojo.",
+    "Bracket-style tournaments for anime, shows, movies, and game showdowns — run live from Captain Diesel's Dojo.",
 };
 
 export default function RootLayout({
