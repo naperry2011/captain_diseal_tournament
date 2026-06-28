@@ -32,10 +32,11 @@ const TABS: { kind: MediaKind; label: string }[] = [
 ];
 
 // Providers with a live search backend. Others render a "Coming soon" panel.
-const LIVE_PROVIDERS = new Set<MediaKind>(["anime"]);
+// anime = AniList, cartoon = TMDB; game (IGDB) is stubbed until configured.
+const LIVE_PROVIDERS = new Set<MediaKind>(["anime", "cartoon"]);
 
 /**
- * Per-competitor media attach control. Tabbed (anime live, cartoon/game stubbed),
+ * Per-competitor media attach control. Tabbed (anime + cartoon live, game stubbed),
  * debounced search against /api/search/{type}, click-to-select.
  */
 export default function MediaSearch({

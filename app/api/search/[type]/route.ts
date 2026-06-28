@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { searchAnilist } from "@/lib/media/anilist";
+import { searchTmdb } from "@/lib/media/tmdb";
 import { getCachedSearch, setCachedSearch } from "@/lib/media/cache";
-import type { SearchResponse } from "@/lib/media/types";
+import type { MediaResult, SearchResponse } from "@/lib/media/types";
 
 const typeSchema = z.enum(["anime", "cartoon", "game"]);
+
+// Live providers by media type. anime = AniList (no key), cartoon = TMDB.
+// game (IGDB) stays stubbed until Twitch OAuth credentials are configured.
+const LIVE_PROVIDERS: Partial<Record<
+  z.infer<typeof typeSchema>,
+  (query: string) => Promise<MediaResult[]>
+>> = {
+  anime: searchAnilist,
+  cartoon: searchTmdb,
+};
 
 export async function GET(
   request: Request,
@@ -30,27 +41,28 @@ export async function GET(
     return NextResponse.json(body, { status: 200 });
   }
 
-  // cartoon/game are stubbed until API keys exist.
-  if (type !== "anime") {
+  const liveSearch = LIVE_PROVIDERS[type];
+  // game has no live provider yet -> "coming soon" state.
+  if (!liveSearch) {
     const body: SearchResponse = { available: false, results: [] };
     return NextResponse.json(body, { status: 200 });
   }
 
-  // anime: cache-first, then live AniList. Never 500 on provider failure.
+  // Live provider: cache-first, then call out. Never 500 on provider failure.
   try {
-    const cached = await getCachedSearch("anime", q);
+    const cached = await getCachedSearch(type, q);
     if (cached) {
       const body: SearchResponse = { available: true, results: cached };
       return NextResponse.json(body, { status: 200 });
     }
 
-    const results = await searchAnilist(q);
+    const results = await liveSearch(q);
     // Only cache non-empty result sets. Caching empty results would pin a
     // transient "no results" outcome for the full TTL.
     if (results.length > 0) {
       // Best-effort cache write; don't fail the request if it throws.
       try {
-        await setCachedSearch("anime", q, results);
+        await setCachedSearch(type, q, results);
       } catch {
         /* ignore cache write errors */
       }
@@ -62,7 +74,7 @@ export async function GET(
     const body: SearchResponse = {
       available: true,
       results: [],
-      error: "Anime search is temporarily unavailable",
+      error: `${type} search is temporarily unavailable`,
     };
     return NextResponse.json(body, { status: 200 });
   }
