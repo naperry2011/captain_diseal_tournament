@@ -1,12 +1,12 @@
-import type { Tournament } from "@prisma/client";
+import { MatchStatus, type Tournament, TournamentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { type SeedEntry, advance, generateBracket } from "@/lib/bracket";
-import { matchStatusFor, rowsToBracket } from "@/lib/bracket-persist";
+import { diffMatches, matchStatusFor, rowsToBracket } from "@/lib/bracket-persist";
 
 // Pure helpers live in lib/bracket-persist.ts (DB-free so they are unit-testable
 // without instantiating a PrismaClient). Re-exported here for convenience.
-export { matchStatusFor, rowsToBracket };
-export type { MatchRow } from "@/lib/bracket-persist";
+export { diffMatches, matchStatusFor, rowsToBracket };
+export type { MatchDiff, MatchRow } from "@/lib/bracket-persist";
 
 const VALID_SIZES = new Set([8, 16, 32, 64]);
 
@@ -74,6 +74,7 @@ export async function randomizeSeeds(tournamentId: string) {
   const n = participants.length;
   const seeds = Array.from({ length: n }, (_, i) => i + 1);
   for (let i = n - 1; i > 0; i--) {
+    // Math.random is intentional: this is a cosmetic seed shuffle, not security-sensitive.
     const j = Math.floor(Math.random() * (i + 1));
     [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
   }
@@ -86,9 +87,19 @@ export async function randomizeSeeds(tournamentId: string) {
 
 /**
  * Load participants, build a bracket via the pure engine, and persist Match rows.
- * Re-running replaces any existing matches (idempotent). Sets status -> live.
+ * Only allowed while the tournament is in `setup` — refuses to regenerate (and
+ * thereby wipe) a bracket once the tournament is live or done. Sets status -> live.
  */
 export async function generateAndSaveBracket(tournamentId: string) {
+  const t = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { status: true },
+  });
+  if (!t) throw new Error(`Tournament ${tournamentId} not found`);
+  if (t.status !== TournamentStatus.setup) {
+    throw new Error("Bracket already generated; cannot regenerate a live/done tournament");
+  }
+
   const participants = await prisma.participant.findMany({
     where: { tournamentId },
     orderBy: { seed: "asc" },
@@ -117,7 +128,7 @@ export async function generateAndSaveBracket(tournamentId: string) {
     }),
     prisma.tournament.update({
       where: { id: tournamentId },
-      data: { status: "live" },
+      data: { status: TournamentStatus.live },
     }),
   ]);
 
@@ -139,7 +150,7 @@ export async function advanceMatch(
     select: { status: true, size: true },
   });
   if (!tournament) throw new Error(`Tournament ${tournamentId} not found`);
-  if (tournament.status !== "live") {
+  if (tournament.status !== TournamentStatus.live) {
     throw new Error("Tournament is not live; cannot advance matches");
   }
 
@@ -147,35 +158,24 @@ export async function advanceMatch(
   const before = rowsToBracket(tournament.size, rows);
   const after = advance(before, round, position, winnerId);
 
-  // Persist only the rows whose p1Id/p2Id/winnerId changed.
-  const updates = [];
-  for (const m of after.matches) {
-    const prev = before.matches.find(
-      (x) => x.round === m.round && x.position === m.position,
-    );
-    if (
-      prev &&
-      (prev.p1Id !== m.p1Id || prev.p2Id !== m.p2Id || prev.winnerId !== m.winnerId)
-    ) {
-      updates.push(
-        prisma.match.update({
-          where: {
-            tournamentId_round_position: {
-              tournamentId,
-              round: m.round,
-              position: m.position,
-            },
-          },
-          data: {
-            p1Id: m.p1Id,
-            p2Id: m.p2Id,
-            winnerId: m.winnerId,
-            status: matchStatusFor(m.p1Id, m.p2Id, m.winnerId),
-          },
-        }),
-      );
-    }
-  }
+  // Persist exactly the rows the engine touched (pure diff, status included).
+  const updates = diffMatches(before, after).map((d) =>
+    prisma.match.update({
+      where: {
+        tournamentId_round_position: {
+          tournamentId,
+          round: d.round,
+          position: d.position,
+        },
+      },
+      data: {
+        p1Id: d.p1Id,
+        p2Id: d.p2Id,
+        winnerId: d.winnerId,
+        status: d.status,
+      },
+    }),
+  );
 
   if (updates.length > 0) await prisma.$transaction(updates);
 
