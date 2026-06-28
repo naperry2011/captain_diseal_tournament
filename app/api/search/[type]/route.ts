@@ -24,7 +24,8 @@ export async function GET(
   const type = parsed.data;
 
   const q = (new URL(request.url).searchParams.get("q") ?? "").trim();
-  if (!q) {
+  // Blank or implausibly long queries return empty without doing any work.
+  if (!q || q.length > 100) {
     const body: SearchResponse = { available: true, results: [] };
     return NextResponse.json(body, { status: 200 });
   }
@@ -44,11 +45,15 @@ export async function GET(
     }
 
     const results = await searchAnilist(q);
-    // Best-effort cache write; don't fail the request if it throws.
-    try {
-      await setCachedSearch("anime", q, results);
-    } catch {
-      /* ignore cache write errors */
+    // Only cache non-empty result sets. Caching empty results would pin a
+    // transient "no results" outcome for the full TTL.
+    if (results.length > 0) {
+      // Best-effort cache write; don't fail the request if it throws.
+      try {
+        await setCachedSearch("anime", q, results);
+      } catch {
+        /* ignore cache write errors */
+      }
     }
 
     const body: SearchResponse = { available: true, results };
