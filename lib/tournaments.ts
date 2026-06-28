@@ -1,0 +1,183 @@
+import type { Tournament } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { type SeedEntry, advance, generateBracket } from "@/lib/bracket";
+import { matchStatusFor, rowsToBracket } from "@/lib/bracket-persist";
+
+// Pure helpers live in lib/bracket-persist.ts (DB-free so they are unit-testable
+// without instantiating a PrismaClient). Re-exported here for convenience.
+export { matchStatusFor, rowsToBracket };
+export type { MatchRow } from "@/lib/bracket-persist";
+
+const VALID_SIZES = new Set([8, 16, 32, 64]);
+
+// ---------------------------------------------------------------------------
+// Persistence (DB-backed). Reuses lib/bracket.ts for all bracket math.
+// ---------------------------------------------------------------------------
+
+export async function createTournament(name: string, size: number): Promise<Tournament> {
+  if (!VALID_SIZES.has(size)) {
+    throw new Error(`Invalid tournament size ${size}; must be one of 8, 16, 32, 64`);
+  }
+  return prisma.tournament.create({
+    data: { name, size },
+  });
+}
+
+export async function listTournaments() {
+  return prisma.tournament.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getTournament(id: string) {
+  return prisma.tournament.findUnique({
+    where: { id },
+    include: {
+      participants: { orderBy: { seed: "asc" } },
+      matches: { orderBy: [{ round: "asc" }, { position: "asc" }] },
+    },
+  });
+}
+
+export interface ParticipantEntry {
+  name: string;
+  seed?: number;
+  mediaType?: "anime" | "cartoon" | "game";
+  mediaId?: string;
+  title?: string;
+  imageUrl?: string;
+}
+
+/**
+ * Create participants for a tournament. If seeds are omitted, assign sequential
+ * seeds by insertion order (1-based).
+ */
+export async function addParticipants(tournamentId: string, entries: ParticipantEntry[]) {
+  const data = entries.map((e, i) => ({
+    tournamentId,
+    name: e.name,
+    seed: e.seed ?? i + 1,
+    mediaType: e.mediaType,
+    mediaId: e.mediaId,
+    title: e.title,
+    imageUrl: e.imageUrl,
+  }));
+  return prisma.participant.createMany({ data });
+}
+
+/** Shuffle participant seeds into a 1..n permutation (Fisher–Yates). */
+export async function randomizeSeeds(tournamentId: string) {
+  const participants = await prisma.participant.findMany({
+    where: { tournamentId },
+    select: { id: true },
+  });
+  const n = participants.length;
+  const seeds = Array.from({ length: n }, (_, i) => i + 1);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
+  }
+  await prisma.$transaction(
+    participants.map((p, i) =>
+      prisma.participant.update({ where: { id: p.id }, data: { seed: seeds[i] } }),
+    ),
+  );
+}
+
+/**
+ * Load participants, build a bracket via the pure engine, and persist Match rows.
+ * Re-running replaces any existing matches (idempotent). Sets status -> live.
+ */
+export async function generateAndSaveBracket(tournamentId: string) {
+  const participants = await prisma.participant.findMany({
+    where: { tournamentId },
+    orderBy: { seed: "asc" },
+  });
+
+  const seedEntries: SeedEntry[] = participants.map((p) => ({
+    id: p.id,
+    name: p.name,
+    seed: p.seed,
+  }));
+
+  const bracket = generateBracket(seedEntries);
+
+  await prisma.$transaction([
+    prisma.match.deleteMany({ where: { tournamentId } }),
+    prisma.match.createMany({
+      data: bracket.matches.map((m) => ({
+        tournamentId,
+        round: m.round,
+        position: m.position,
+        p1Id: m.p1Id,
+        p2Id: m.p2Id,
+        winnerId: m.winnerId,
+        status: matchStatusFor(m.p1Id, m.p2Id, m.winnerId),
+      })),
+    }),
+    prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { status: "live" },
+    }),
+  ]);
+
+  return getTournament(tournamentId);
+}
+
+/**
+ * Record a winner for a match and propagate to the next round, reusing the pure
+ * advance() engine to compute the diff, then persisting only the changed rows.
+ */
+export async function advanceMatch(
+  tournamentId: string,
+  round: number,
+  position: number,
+  winnerId: string,
+) {
+  const tournament = await prisma.tournament.findUnique({
+    where: { id: tournamentId },
+    select: { status: true, size: true },
+  });
+  if (!tournament) throw new Error(`Tournament ${tournamentId} not found`);
+  if (tournament.status !== "live") {
+    throw new Error("Tournament is not live; cannot advance matches");
+  }
+
+  const rows = await prisma.match.findMany({ where: { tournamentId } });
+  const before = rowsToBracket(tournament.size, rows);
+  const after = advance(before, round, position, winnerId);
+
+  // Persist only the rows whose p1Id/p2Id/winnerId changed.
+  const updates = [];
+  for (const m of after.matches) {
+    const prev = before.matches.find(
+      (x) => x.round === m.round && x.position === m.position,
+    );
+    if (
+      prev &&
+      (prev.p1Id !== m.p1Id || prev.p2Id !== m.p2Id || prev.winnerId !== m.winnerId)
+    ) {
+      updates.push(
+        prisma.match.update({
+          where: {
+            tournamentId_round_position: {
+              tournamentId,
+              round: m.round,
+              position: m.position,
+            },
+          },
+          data: {
+            p1Id: m.p1Id,
+            p2Id: m.p2Id,
+            winnerId: m.winnerId,
+            status: matchStatusFor(m.p1Id, m.p2Id, m.winnerId),
+          },
+        }),
+      );
+    }
+  }
+
+  if (updates.length > 0) await prisma.$transaction(updates);
+
+  return getTournament(tournamentId);
+}
