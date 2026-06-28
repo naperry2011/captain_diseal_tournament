@@ -11,27 +11,24 @@ export interface CompetitorCardParticipant {
 }
 
 /**
- * Presentational card for one competitor slot inside a match. A null participant
+ * Presentational card for one competitor slot inside a match (display-only —
+ * winner-picking happens in the MatchSpotlight overlay). A null participant
  * renders a muted "TBD" placeholder (awaiting a feeder result or a bye). Winner /
- * loser states get brand styling; clickable slots render as a <button> for a11y.
+ * loser states get brand styling.
  */
 export default function CompetitorCard({
   participant,
   isWinner = false,
   isLoser = false,
-  clickable = false,
-  onClick,
 }: {
   participant: CompetitorCardParticipant | null;
   isWinner?: boolean;
   isLoser?: boolean;
-  clickable?: boolean;
-  onClick?: () => void;
 }) {
   const label = participant ? participant.title || participant.name : null;
 
   const base =
-    "flex w-full items-center gap-2 rounded border px-2 py-1.5 text-left transition";
+    "flex w-full items-center gap-2 rounded border px-2 py-1.5 text-left";
 
   const stateClass = !participant
     ? "border-dashed border-dojo-steel bg-dojo-coal/60"
@@ -41,12 +38,8 @@ export default function CompetitorCard({
         ? "border-dojo-steel bg-dojo-coal opacity-40 line-through"
         : "border-dojo-steel bg-dojo-coal text-dojo-white";
 
-  const interactive = clickable
-    ? "cursor-pointer hover:border-dojo-red hover:shadow-red-glow"
-    : "";
-
-  const inner = (
-    <>
+  return (
+    <div className={`${base} ${stateClass}`}>
       {participant ? (
         <CoverImage
           src={participant.imageUrl}
@@ -69,24 +62,6 @@ export default function CompetitorCard({
           {participant.seed}
         </span>
       ) : null}
-    </>
+    </div>
   );
-
-  if (clickable && participant) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className={`${base} ${stateClass} ${interactive} group`}
-        aria-label={`Advance ${label} to the next round`}
-      >
-        {inner}
-        <span className="display ml-1 hidden shrink-0 text-[9px] tracking-widest text-dojo-red group-hover:inline">
-          ▶
-        </span>
-      </button>
-    );
-  }
-
-  return <div className={`${base} ${stateClass}`}>{inner}</div>;
 }

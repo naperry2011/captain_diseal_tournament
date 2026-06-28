@@ -15,38 +15,33 @@ export interface MatchCardMatch {
 
 /**
  * Presentational match: two stacked CompetitorCards separated by a thin VS
- * divider. When the match is `ready` and an onPick handler is supplied, each
- * present competitor is clickable to advance. While `pending` (an advance is in
- * flight) clicks are disabled. When `done`, the winner / loser are marked.
+ * divider. When the match is `ready` and an onOpen handler is supplied, the whole
+ * card is a button that opens the full-screen MatchSpotlight (where the winner is
+ * chosen). While `pending` (an advance is in flight) it's disabled. When `done`,
+ * the winner / loser are marked.
  */
 export default function MatchCard({
   match,
   p1,
   p2,
-  onPick,
+  onOpen,
   pending = false,
 }: {
   match: MatchCardMatch;
   p1: CompetitorCardParticipant | null;
   p2: CompetitorCardParticipant | null;
-  onPick?: (winnerId: string) => void;
+  onOpen?: () => void;
   pending?: boolean;
 }) {
   const isDone = match.status === "done";
-  const canPick = match.status === "ready" && !!onPick && !pending;
+  const canOpen = match.status === "ready" && !!onOpen && !pending;
 
-  return (
-    <div
-      className={`flex w-48 flex-col gap-1 rounded-lg border border-dojo-steel/70 bg-dojo-black/40 p-1.5 ${
-        pending ? "opacity-60" : ""
-      }`}
-    >
+  const content = (
+    <>
       <CompetitorCard
         participant={p1}
         isWinner={isDone && match.winnerId === match.p1Id}
         isLoser={isDone && match.winnerId !== match.p1Id && !!match.p1Id}
-        clickable={canPick && !!p1}
-        onClick={canPick && p1 ? () => onPick?.(p1.id) : undefined}
       />
       <div className="flex items-center justify-center">
         <span className="display text-[9px] tracking-[0.3em] text-dojo-ash">
@@ -57,9 +52,28 @@ export default function MatchCard({
         participant={p2}
         isWinner={isDone && match.winnerId === match.p2Id}
         isLoser={isDone && match.winnerId !== match.p2Id && !!match.p2Id}
-        clickable={canPick && !!p2}
-        onClick={canPick && p2 ? () => onPick?.(p2.id) : undefined}
       />
-    </div>
+    </>
   );
+
+  const baseClass = `flex w-48 flex-col gap-1 rounded-lg border border-dojo-steel/70 bg-dojo-black/40 p-1.5 ${
+    pending ? "opacity-60" : ""
+  }`;
+
+  if (canOpen) {
+    const p1Label = p1 ? p1.title || p1.name : "TBD";
+    const p2Label = p2 ? p2.title || p2.name : "TBD";
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Open match: ${p1Label} versus ${p2Label}`}
+        className={`${baseClass} cursor-pointer text-left transition hover:border-dojo-red hover:shadow-red-glow`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={baseClass}>{content}</div>;
 }

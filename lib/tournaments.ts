@@ -29,6 +29,11 @@ export async function listTournaments() {
   });
 }
 
+/** Delete a tournament and (via onDelete: Cascade) its participants + matches. */
+export async function deleteTournament(id: string) {
+  await prisma.tournament.delete({ where: { id } });
+}
+
 export async function getTournament(id: string) {
   return prisma.tournament.findUnique({
     where: { id },

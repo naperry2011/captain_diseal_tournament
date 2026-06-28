@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   createTournamentWithParticipants,
+  deleteTournament,
   generateAndSaveBracket,
   randomizeSeeds,
 } from "@/lib/tournaments";
@@ -75,5 +76,12 @@ export async function generateBracketAction(tournamentId: string): Promise<void>
   await generateAndSaveBracket(id);
   revalidatePath(`/tournament/${id}`);
   revalidatePath(`/tournament/${id}/setup`);
+  revalidatePath("/");
+}
+
+/** Permanently delete a tournament (cascades to its matches + competitors). */
+export async function deleteTournamentAction(tournamentId: string): Promise<void> {
+  const id = z.string().min(1).parse(tournamentId);
+  await deleteTournament(id);
   revalidatePath("/");
 }

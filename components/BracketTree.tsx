@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Participant } from "@prisma/client";
 import MatchCard, { type MatchCardMatch } from "@/components/MatchCard";
+import MatchSpotlight from "@/components/MatchSpotlight";
 import type { CompetitorCardParticipant } from "@/components/CompetitorCard";
 import { advanceWinner } from "@/app/tournament/[id]/actions";
 
@@ -55,6 +56,7 @@ export default function BracketTree({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pendingMatchId, setPendingMatchId] = useState<string | null>(null);
+  const [spotlightId, setSpotlightId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const lookup = new Map(participants.map((p) => [p.id, p]));
@@ -84,6 +86,7 @@ export default function BracketTree({
           match.position,
           winnerId,
         );
+        setSpotlightId(null);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not advance winner");
@@ -92,6 +95,16 @@ export default function BracketTree({
       }
     });
   }
+
+  const spotlightMatch = spotlightId
+    ? matches.find((m) => m.id === spotlightId) ?? null
+    : null;
+  const spotlightP1 = spotlightMatch
+    ? toCardParticipant(spotlightMatch.p1Id, lookup)
+    : null;
+  const spotlightP2 = spotlightMatch
+    ? toCardParticipant(spotlightMatch.p2Id, lookup)
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -130,10 +143,8 @@ export default function BracketTree({
                       match={m}
                       p1={toCardParticipant(m.p1Id, lookup)}
                       p2={toCardParticipant(m.p2Id, lookup)}
-                      onPick={
-                        status === "live"
-                          ? (winnerId) => handlePick(m, winnerId)
-                          : undefined
+                      onOpen={
+                        status === "live" ? () => setSpotlightId(m.id) : undefined
                       }
                       pending={pendingMatchId === m.id}
                     />
@@ -144,6 +155,17 @@ export default function BracketTree({
           })}
         </div>
       </div>
+
+      {spotlightMatch && spotlightP1 && spotlightP2 && (
+        <MatchSpotlight
+          roundLabel={roundLabel(spotlightMatch.round, totalRounds)}
+          p1={spotlightP1}
+          p2={spotlightP2}
+          onPick={(winnerId) => handlePick(spotlightMatch, winnerId)}
+          onClose={() => setSpotlightId(null)}
+          pending={pendingMatchId === spotlightMatch.id}
+        />
+      )}
     </div>
   );
 }

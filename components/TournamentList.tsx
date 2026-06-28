@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Tournament } from "@prisma/client";
+import DeleteTournamentButton from "@/components/DeleteTournamentButton";
 
 const STATUS_STYLES: Record<Tournament["status"], string> = {
   setup: "border border-dojo-steel bg-dojo-steel text-dojo-ash",
@@ -34,7 +35,7 @@ export default function TournamentList({
   return (
     <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {tournaments.map((t) => (
-        <li key={t.id}>
+        <li key={t.id} className="relative">
           <Link
             href={hrefFor(t)}
             className="group flex h-full flex-col justify-between gap-4 rounded-lg border border-dojo-steel bg-dojo-coal p-5 transition hover:border-dojo-red hover:shadow-red-glow"
@@ -53,6 +54,10 @@ export default function TournamentList({
               {t.size} competitors
             </p>
           </Link>
+          {/* Sibling of the Link (not nested) so it doesn't trigger navigation. */}
+          <div className="absolute bottom-3 right-3 z-10">
+            <DeleteTournamentButton id={t.id} name={t.name} />
+          </div>
         </li>
       ))}
     </ul>

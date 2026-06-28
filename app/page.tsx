@@ -13,7 +13,7 @@ export default async function Home() {
             Tournaments
           </h1>
           <p className="display text-dojo-ash mt-1 text-sm tracking-widest">
-            Anime · Cartoon · Game showdowns
+            Anime · Shows · Movies · Game showdowns
           </p>
         </div>
         <Link
