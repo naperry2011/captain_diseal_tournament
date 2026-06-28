@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapAnilistResponse, anilistQueryVariables } from "./anilist";
+import { mapAnilistResponse, anilistQueryVariables, parseAnilistResponse } from "./anilist";
 
 describe("mapAnilistResponse", () => {
   it("maps a sample payload with english/romaji fallback and cover image fallback", () => {
@@ -57,6 +57,35 @@ describe("mapAnilistResponse", () => {
     expect(out[0].title).toBe("Romaji Only");
     expect(out[1].title).toBe("Untitled");
     expect(out[1].imageUrl).toBeNull();
+  });
+});
+
+describe("parseAnilistResponse", () => {
+  it("throws on a non-empty top-level errors array", () => {
+    expect(() =>
+      parseAnilistResponse({ data: null, errors: [{ message: "Too Many Requests." }] })
+    ).toThrow("Too Many Requests.");
+  });
+
+  it("throws with 'unknown' when an error lacks a message", () => {
+    expect(() => parseAnilistResponse({ errors: [{}] })).toThrow("unknown");
+  });
+
+  it("maps results from a valid { data: { Page: { media } } } payload", () => {
+    const json = {
+      data: {
+        Page: {
+          media: [{ id: 7, title: { english: "Trigun" }, coverImage: { large: "x" } }],
+        },
+      },
+    };
+    expect(parseAnilistResponse(json)).toEqual([
+      { mediaId: "7", title: "Trigun", imageUrl: "x", mediaType: "anime" },
+    ]);
+  });
+
+  it("returns [] for { data: { Page: null } }", () => {
+    expect(parseAnilistResponse({ data: { Page: null } })).toEqual([]);
   });
 });
 

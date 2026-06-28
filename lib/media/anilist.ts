@@ -52,9 +52,33 @@ export function mapAnilistResponse(json: unknown): MediaResult[] {
 }
 
 /**
+ * Parse a full AniList GraphQL response body. Pure.
+ *
+ * AniList returns HTTP 200 even for invalid/throttled queries, signalling the
+ * failure via a top-level `errors` array (with `data` null). We surface that as
+ * a thrown Error so the route degrades to "temporarily unavailable" rather than
+ * caching an empty result set for 24h. A genuinely empty search still returns [].
+ */
+export function parseAnilistResponse(json: unknown): MediaResult[] {
+  if (isObject(json)) {
+    const errors = (json as { errors?: unknown }).errors;
+    if (Array.isArray(errors) && errors.length > 0) {
+      const first = errors[0];
+      const message =
+        isObject(first) && typeof first.message === "string" ? first.message : "unknown";
+      throw new Error(`AniList error: ${message}`);
+    }
+    const data = (json as { data?: { Page?: unknown } }).data;
+    return mapAnilistResponse(data?.Page);
+  }
+  return mapAnilistResponse(undefined);
+}
+
+/**
  * Live search against AniList's public GraphQL API (no key required).
  * Returns [] for blank queries. Throws a typed Error on HTTP/network failure
- * so the route can catch and degrade gracefully.
+ * (or on an AniList `errors` payload) so the route can catch and degrade
+ * gracefully.
  */
 export async function searchAnilist(query: string): Promise<MediaResult[]> {
   const trimmed = query.trim();
@@ -81,6 +105,6 @@ export async function searchAnilist(query: string): Promise<MediaResult[]> {
     throw new Error(`AniList responded with status ${res.status}`);
   }
 
-  const json = (await res.json()) as { data?: { Page?: unknown } };
-  return mapAnilistResponse(json.data?.Page);
+  const json: unknown = await res.json();
+  return parseAnilistResponse(json);
 }
