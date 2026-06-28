@@ -38,3 +38,32 @@ export function seedOrder(size: number): number[] {
   }
   return rounds;
 }
+
+function placeWinnerIntoNext(matches: BracketMatch[], round: number, position: number, winnerId: string): void {
+  const next = matches.find(m => m.round === round + 1 && m.position === Math.floor(position / 2));
+  if (!next) return;
+  if (position % 2 === 0) next.p1Id = winnerId; else next.p2Id = winnerId;
+}
+
+export function generateBracket(participants: SeedEntry[]): Bracket {
+  const size = nextPowerOfTwo(Math.max(participants.length, 2));
+  const order = seedOrder(size);
+  const bySeed = new Map(participants.map(p => [p.seed, p]));
+  const slots: (string | null)[] = order.map(seed => bySeed.get(seed)?.id ?? null);
+  const matches: BracketMatch[] = [];
+  for (let i = 0; i < size / 2; i++) {
+    const p1 = slots[i * 2], p2 = slots[i * 2 + 1];
+    const winnerId = p2 === null && p1 !== null ? p1 : p1 === null && p2 !== null ? p2 : null;
+    matches.push({ round: 1, position: i, p1Id: p1, p2Id: p2, winnerId });
+  }
+  let round = 2, count = size / 4;
+  while (count >= 1) {
+    for (let i = 0; i < count; i++) matches.push({ round, position: i, p1Id: null, p2Id: null, winnerId: null });
+    count = Math.floor(count / 2);
+    round++;
+  }
+  for (const m of matches.filter(x => x.round === 1 && x.winnerId)) {
+    placeWinnerIntoNext(matches, m.round, m.position, m.winnerId!);
+  }
+  return { size, matches };
+}
