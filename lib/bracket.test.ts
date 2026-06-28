@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { nextPowerOfTwo, seedOrder, generateBracket } from "./bracket";
+import { nextPowerOfTwo, seedOrder, generateBracket, advance } from "./bracket";
 import type { SeedEntry } from "./bracket";
 
 const mk = (n: number): SeedEntry[] => Array.from({length:n},(_,i)=>({id:`p${i+1}`,name:`P${i+1}`,seed:i+1}));
@@ -42,5 +42,23 @@ describe("generateBracket", () => {
   });
   it("creates the full match tree (size-1 matches total)", () => {
     expect(generateBracket(mk(8)).matches).toHaveLength(7);
+  });
+});
+
+describe("advance", () => {
+  it("moves the winner into the correct next-round slot", () => {
+    const b2 = advance(generateBracket(mk(8)), 1, 0, "p1");
+    expect(b2.matches.find(m=>m.round===2&&m.position===0)!.p1Id).toBe("p1");
+  });
+  it("winner of round1 pos1 lands in round2 pos0 slot2", () => {
+    const b2 = advance(generateBracket(mk(8)), 1, 1, "p4");
+    expect(b2.matches.find(m=>m.round===2&&m.position===0)!.p2Id).toBe("p4");
+  });
+  it("throws when advancing an already-decided match", () => {
+    const b2 = advance(generateBracket(mk(8)), 1, 0, "p1");
+    expect(() => advance(b2, 1, 0, "p8")).toThrow();
+  });
+  it("throws when winnerId is not a participant of that match", () => {
+    expect(() => advance(generateBracket(mk(8)), 1, 0, "p4")).toThrow();
   });
 });

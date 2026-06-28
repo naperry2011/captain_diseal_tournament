@@ -67,3 +67,14 @@ export function generateBracket(participants: SeedEntry[]): Bracket {
   }
   return { size, matches };
 }
+
+export function advance(bracket: Bracket, round: number, position: number, winnerId: string): Bracket {
+  const matches = bracket.matches.map(m => ({ ...m }));
+  const match = matches.find(m => m.round === round && m.position === position);
+  if (!match) throw new Error(`No match at round ${round} position ${position}`);
+  if (match.winnerId) throw new Error("Match already decided");
+  if (winnerId !== match.p1Id && winnerId !== match.p2Id) throw new Error("Winner is not in this match");
+  match.winnerId = winnerId;
+  placeWinnerIntoNext(matches, round, position, winnerId);
+  return { ...bracket, matches };
+}
