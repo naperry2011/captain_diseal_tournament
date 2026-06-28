@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advance, generateBracket } from "@/lib/bracket";
+import { advance, champion, generateBracket } from "@/lib/bracket";
 import {
   type MatchRow,
   diffMatches,
@@ -128,5 +128,44 @@ describe("diffMatches", () => {
   it("returns an empty diff when nothing changed", () => {
     const b = generateBracket(participants);
     expect(diffMatches(b, b)).toEqual([]);
+  });
+});
+
+// Documents the trigger condition advanceMatch uses to flip a tournament to
+// `done`: champion(after) stays null until the final is decided, then becomes
+// the winner id. (The DB write itself isn't unit-tested — no DB here.)
+describe("champion() done-transition trigger", () => {
+  const participants = Array.from({ length: 4 }, (_, i) => ({
+    id: `p${i + 1}`,
+    name: `P${i + 1}`,
+    seed: i + 1,
+  }));
+
+  it("is null until the final is decided, then equals the final winner", () => {
+    const start = generateBracket(participants);
+    expect(champion(start)).toBeNull();
+
+    const afterR1m0 = advance(
+      start,
+      1,
+      0,
+      start.matches.find((m) => m.round === 1 && m.position === 0)!.p1Id!,
+    );
+    expect(champion(afterR1m0)).toBeNull();
+
+    const afterR1m1 = advance(
+      afterR1m0,
+      1,
+      1,
+      afterR1m0.matches.find((m) => m.round === 1 && m.position === 1)!.p1Id!,
+    );
+    // Final is now ready but not decided -> still no champion.
+    expect(champion(afterR1m1)).toBeNull();
+
+    const finalP1 = afterR1m1.matches.find(
+      (m) => m.round === 2 && m.position === 0,
+    )!.p1Id!;
+    const afterFinal = advance(afterR1m1, 2, 0, finalP1);
+    expect(champion(afterFinal)).toBe(finalP1);
   });
 });

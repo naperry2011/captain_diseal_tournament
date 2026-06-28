@@ -1,6 +1,6 @@
-import { MatchStatus, type Tournament, TournamentStatus } from "@prisma/client";
+import { MatchStatus, Prisma, type Tournament, TournamentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { type SeedEntry, advance, generateBracket } from "@/lib/bracket";
+import { type SeedEntry, advance, champion, generateBracket } from "@/lib/bracket";
 import { diffMatches, matchStatusFor, rowsToBracket } from "@/lib/bracket-persist";
 
 // Pure helpers live in lib/bracket-persist.ts (DB-free so they are unit-testable
@@ -213,7 +213,9 @@ export async function advanceMatch(
   const after = advance(before, round, position, winnerId);
 
   // Persist exactly the rows the engine touched (pure diff, status included).
-  const updates = diffMatches(before, after).map((d) =>
+  // Typed as the shared PrismaPromise so the optional tournament-status update
+  // can join the same transaction array.
+  const updates: Prisma.PrismaPromise<unknown>[] = diffMatches(before, after).map((d) =>
     prisma.match.update({
       where: {
         tournamentId_round_position: {
@@ -230,6 +232,17 @@ export async function advanceMatch(
       },
     }),
   );
+
+  // If the final is now decided, flip the tournament to `done` in the same
+  // transaction so the dashboard chip and the bracket page reflect completion.
+  if (champion(after) !== null) {
+    updates.push(
+      prisma.tournament.update({
+        where: { id: tournamentId },
+        data: { status: TournamentStatus.done },
+      }),
+    );
+  }
 
   if (updates.length > 0) await prisma.$transaction(updates);
 

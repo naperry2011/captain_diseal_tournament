@@ -78,7 +78,7 @@ export default function CompetitorCard({
         type="button"
         onClick={onClick}
         className={`${base} ${stateClass} ${interactive} group`}
-        title="Click to advance"
+        aria-label={`Advance ${label} to the next round`}
       >
         {inner}
         <span className="display ml-1 hidden shrink-0 text-[9px] tracking-widest text-dojo-red group-hover:inline">
